@@ -1,6 +1,6 @@
 var sum = 0
 for _ in 1...5{
-    let a = Int(readLine()!)!
-    sum += a
+    let num = Int(readLine()!)!
+    sum += num
 }
 print(sum)
