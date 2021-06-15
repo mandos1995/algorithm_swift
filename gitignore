@@ -1,3 +1,5 @@
 *.DS_Store
 .DS_Store
 main.swift
+.main
+.main.swift
