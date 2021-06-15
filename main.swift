@@ -1,5 +1,8 @@
 import Foundation
-var input = readLine()!.components(separatedBy: " ").map{ Int($0)! }
-let a = input[0]
-let b = input[1]
-print((a + b) * (a - b))
+var formatter = DateFormatter()
+formatter.dateFormat = "yyyy-MM-dd"
+var current_date_string = formatter.string(from: Date())
+var dateArr = current_date_string.split(separator: "-")
+for i in dateArr{
+    print(i)
+}
