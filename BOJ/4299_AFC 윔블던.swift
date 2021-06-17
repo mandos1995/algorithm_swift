@@ -1,3 +1,5 @@
+// 연립 방정식 문제인듯
+// sum - minus < 0 조건을 찾는게 힘들었다.
 import Foundation
 let input = readLine()!.split(separator: " ").map{ Int($0)! }
 let sum = input[0]
@@ -13,4 +15,3 @@ else {
     b = (sum - a)
     print(max(a,b), min(a,b))
 }
-
