@@ -1,8 +1,13 @@
-//
-//  10179_쿠폰.swift
-//  algorithm_swift
-//
-//  Created by 김민석 on 2021/06/21.
-//
-
 import Foundation
+var t = Int(readLine()!)!
+var input = [Double]()
+for _ in 0..<t{
+    input.append(Double(readLine()!)!)
+}
+for i in 0..<t{
+    input[i] = input[i] * 0.8
+}
+for i in 0..<t{
+    print("$",terminator: "")
+    print(String(format: "%.2f", input[i]))
+}
