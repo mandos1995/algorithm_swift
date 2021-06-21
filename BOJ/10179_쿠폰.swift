@@ -9,5 +9,6 @@ for i in 0..<t{
 }
 for i in 0..<t{
     print("$",terminator: "")
+    
     print(String(format: "%.2f", input[i]))
 }
