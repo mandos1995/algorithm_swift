@@ -11,4 +11,3 @@ if a1 / p1 > (Double.pi * r1 * r1) / p2 {
 } else {
     print("Whole pizza")
 }
-
