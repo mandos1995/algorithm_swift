@@ -22,3 +22,9 @@ for _ in 0..<n {
 }
 print(array)
 ```
+
+* 크기 정해주기
+```swift
+let array = [[Int]](repeating: [Int](repeating: 0, count: 5), count: 3)
+print(array)
+```
