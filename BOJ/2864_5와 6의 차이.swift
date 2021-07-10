@@ -32,5 +32,4 @@ for i in input[1] {
         min2 += String(i)
     }
 }
-
 print(Int(min1)! + Int(min2)!, Int(max1)! + Int(max2)!)
