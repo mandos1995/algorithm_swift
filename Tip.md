@@ -28,3 +28,21 @@ print(array)
 let array = [[Int]](repeating: [Int](repeating: 0, count: 5), count: 3)
 print(array)
 ```
+
+##### String Slicing
+```Swift
+let minseok: String = "minseok"
+print(minseok[minseok.startIndex])                      // m
+
+let startIdx = minseok.index(minseok.startIndex, offsetBy: 1)
+print(minseok[startIdx])                                // i
+
+let startIdx2 = minseok.index(minseok.startIndex, offsetBy: 2)
+print(minseok[startIdx2])                               // n
+
+let endIdx = minseok.index(minseok.endIndex, offsetBy: -1)
+print(minseok[endIdx])                                  // k
+
+print(minseok[startIdx2...endIdx])                      // nseok
+print(minseok[minseok.startIndex..<minseok.endIndex])   // minseok
+```
