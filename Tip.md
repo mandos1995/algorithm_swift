@@ -48,6 +48,6 @@ print(minseok[minseok.startIndex..<minseok.endIndex])   // minseok
 ```
 
 ##### 2차원 배열 정렬
-```
+```Swift
 let sortedArray = array.sorted { $0.first! < $1.first! }
 ```
