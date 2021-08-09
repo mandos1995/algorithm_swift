@@ -46,3 +46,8 @@ print(minseok[endIdx])                                  // k
 print(minseok[startIdx2...endIdx])                      // nseok
 print(minseok[minseok.startIndex..<minseok.endIndex])   // minseok
 ```
+
+##### 2차원 배열 정렬
+```
+let sortedArray = array.sorted { $0.first! < $1.first! }
+```
