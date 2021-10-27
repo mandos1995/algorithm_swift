@@ -1,5 +1,5 @@
 while true {
-    var input = readLine()!.split(separator: " ").map { Int($0)! }
+    var input = readLine()!.split(separator: " ").map { String(Int($0))! }
     if input[0] == 0 && input[1] == 0 && input[2] == 0 && input[3] == 0 {
         break
     }
