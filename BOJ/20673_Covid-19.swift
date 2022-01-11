@@ -1,9 +1,9 @@
-let input1 = Int(readLine()!)!
-let input2 = Int(readLine()!)!
+let p = Int(readLine()!)!
+let q = Int(readLine()!)!
 
-if input1 <= 50 && input2 <= 10 {
+if p <= 50 && q <= 10 {
     print("White")
-} else if input2 >= 30 {
+} else if q > 30 {
     print("Red")
 } else {
     print("Yellow")
