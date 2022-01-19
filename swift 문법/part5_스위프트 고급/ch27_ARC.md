@@ -29,3 +29,156 @@ ARC와 갈비지 컬렉션의 가장 큰 차이는 참조를 계산하는 시점
 인스턴스가 지속해서 필요한 상황에서 ARC는 인스턴스가 메모리에서 해제되지 않도록 인스턴스 참조 여부를 계속 추적한다. 다른 인스턴스의 프로퍼티나 변수, 상수 등 어느 한 곳에서 인스턴스를 참조한다면 ARC가 해당 인스턴스를 해제하지 않고 유지해야 명분이 된다. 인스턴스를 메모리에 유지시키려면 이런 명분을 ARC에 제공해야 한다는 것을 명심해야 한다.
 
 인스턴스가 언제 메모리에서 해제될지 예측할 수 있도록 ARC에 적용되는 몇 가지 규칙을 알아보자. 그리고 이런 규칙을 알지 못할 때 벌어질 수 있는 문제점과 해결방안도 알아보자.
+
+## 27.2 강한참조
+
+인스턴스가 계속해서 메모리에 남아있어야 하는 명분을 만들어 주는 것이 바로 **강한참조** 이다. 인스턴스는 참조 횟수가 0이 되는 순간 메모리에서 해제되는데, 인스턴스를 다른 인스턴스의 프로퍼티나 변수, 상수 등에 할당할 때 강한참조를 사용하면 참조 횟수가 1 증가한다. 또, 강한참조를 사용하는 프로퍼티, 변수, 상수 등에 nil을 할당해주면 원래 자신에게 할당되어 있던 인스턴스의 참조 횟수가 1 감소한다.
+
+참조의 기본은 강한참조이므로 클래스 타입의 프로퍼티, 변수, 상수 등을 선언할 때 별도의 식별자를 명시하지 않으면 강한참조를 한다. 이제까지 우리는 알지 못하고 써왔지만 프로퍼티와 변수, 상수를 모두 강한참조로 선언해주었던 것이다.
+
+```swift
+class Person {
+    let name: String
+
+    init(name: String) {
+        self.name = name
+        print("\(name) is being initialized")
+    }
+
+    deinit {
+        print("\(name) is being deinitalized")
+    }
+}
+
+var reference1: Person?
+var reference2: Person?
+var reference3: Person?
+
+reference1 = Person(name: "minseok")
+// minseok is being initialized
+// 인스턴스의 참조 횟수 : 1
+
+reference2 = reference1 // 인스턴스의 참조 횟수 : 2
+reference3 = reference1 // 인스턴스의 참조 횟수 : 3
+
+reference3 = nil // 인스턴스의 참조 횟수 : 2
+reference2 = nil // 인스턴스의 참조 횟수 : 1
+reference1 = nil // 인스턴스의 참조 횟수 : 0
+// minseok is being deinitalized
+```
+
+위 코드의 reference1에 할당된 Person 클래스 타입의 인스턴스는 처음 메모리에 생성된 후 강한참조로 reference1에 할당되기 때문에 참조 횟수가 1 증가한다. 그 후 reference2에 강한참조로 할당되기 때문에 참조 횟수가 1 더 증가한다. 마찬가지로 이 인스턴스가 reference3에 할당될 때도 참조 횟수가 1 증가한다. 하나의 인스턴스가 세 개의 변수에 강한참조로 참조하고 있는 것이다. 따라서 계속 메모리에 살아있을 명분이 충분하다.
+
+다음은 해제이다. 마지막에 참조되었던 reference3에서 제일 먼저 인스턴스 참조를 그만 두었다. 그러면 인스턴스의 참조 횟는 1 감소하여 2가 된다. 마찬가지로 reference2와 reference1에서 순차적으로 참조를 그만두면 참조 횟수가 0이 된다. 참조 횟수가 0이 되는 순간 인스턴스는 ARC의 규칙에 의해 메모리에서 해제되며 메모리에서 해제되기 직전에 디이니셜라이저를 호출한다.
+
+```swift
+func foo() {
+    let minseok: Person = Person(name: "minseok")   // minseok is being initialized
+    // 인스턴스의 참조 횟수 : 1
+
+    // 함수 종료 시점
+    // 인스턴스의 참조 횟수 : 0
+    // minseok is being deinitalized
+}
+foo()
+```
+
+위 코드의 경우, foo()라는 함수 내부에 minseok이라 정의한 강한참조 상수가 있다. Person 타입의 인스턴스는 이니셜라이저에 의해 생성된 후 minseok 상수에 할당할 때 참조 횟수가 1이 된다. 그리고 강한참조 지역변수(상수)가 사용된 범위의 코드 실행이 종료되면 그 지역변수(상수)가 참조하던 인스턴스의 참조 횟수가 1 감소한다. 그래서 minseok 상수가 강한참조하던 인스턴스의 참조 횟수가 1 감소하여 인스턴스의 참조 횟수가 0이 된다. 인스턴스의 참조 횟수가 0이 되는 순간 인스턴스는 메모리에서 해제된다.
+
+```swift
+var globalReference: Person?
+func foo() {
+    let minseok: Person = Person(name: "minseok")   // minseok is being initialized
+    // 인스턴스의 참조 횟수 : 1
+
+    globalReference = minseok // 인스턴스의 참조 횟수 : 2
+
+    // 함수 종료 시점
+    // 인스턴스의 참조 횟수 : 1
+}
+foo()
+```
+
+위 코드에서 인스턴스가 foo() 함수 내부에서 생성된 후 강한참조로 minseok 상수에 참조된 것은 크게 다르지 않다. 그런데 이번엔 인스턴스가 강한참조를 하는 전역변수 globalReference에 강한참조되면서 참조 횟수가 1 더 증가하여 2가 되었다. 그 상태에서는 함수가 종료되면 참조 횟수가 1 감소하여도 여전히 참조 횟수가 1이므로 메모리에서 해제되지 않는다.
+
+### 27.2.1 강한참조 순환 문제
+
+그런데 복합적으로 강한참조가 일어나는 상황에서 강한참조의 규칙을 모르고 사용하게 되면 문제가 발생할 수 있다. 인스턴스끼리 서로가 서로를 강한참조할 때를 대표적인 예로 들 수 있다. 이를 **강한참조 순환** 이라고 한다.
+
+```swift
+class Person {
+    let name: String
+
+    init(name: String) {
+        self.name = name
+        print("\(name) is being initialized")
+    }
+
+    var room: Room?
+
+    deinit {
+        print("\(name) is being deinitalized")
+    }
+}
+
+class Room {
+    let number: String
+
+    init(number: String) {
+        self.number = number
+    }
+
+    var host: Person?
+
+    deinit {
+        print("Room \(number) is being deinitalized")
+    }
+}
+
+var minseok: Person? = Person(name: "minseok")  // Person 인스턴스의 참조 횟수 : 1
+var room: Room? = Room(number: "505")           // Room 인스턴스의 참조 횟수 : 1
+
+room?.host = minseok                            // Person 인스턴스의 참조 횟수 : 2
+minseok?.room = room                            // Room 인스턴스의 참조 횟수 : 2
+
+minseok = nil                                   // Person 인스턴스의 참조 횟수 : 1
+room = nil                                      // Room 인스턴스의 참조 횟수 : 1
+
+// Person 인스턴스를 참조할 방법 상실 - 메모리에 잔존
+// Room 인스턴스를 참조할 방법 상실 - 메모리에 잔존
+```
+
+위의 코드의 Person 클래스는 강한참조를 하는 Room? 타입의 저장 프로퍼티 room을 가지며, Room 클래스는 강한참조를 하는 Person? 타입의 저장 프로퍼티 host를 갖는다. 사람(Person 클래스)에게 필요한 방이 업을 수도 있고, 방(Room 클래스)에 사는 사람이 없을 수도 있기 때문에 두 프로퍼티 모두 옵셔널로 정의되어 있다. 그리고 두 클래스 모두 인스턴스가 메모리에서 해제되는 시점을 파악하기 위해 디이니셜라이저를 정의하고 콘솔 출력 문구를 출력하도록 구현해주었다.
+
+그러나 이 예제 코드를 실행했을 때 디이니셜라이저는 영원히 호출되지 않음을 확인할 수 있다.
+
+두 클래스 모두 클래스 정의 다음 코드를 보면 minseok은 Person? 타입의 변수고, room은 Room? 타입의 변수이다. 각 변수에 맞는 타입으로 Person 클래스의 인스턴스와 Room 클래스의 인스턴스가 각각 메모리에 할당될 때 강한참조를 하므로 참조 횟수가 1씩 증가한다.
+
+두 인스턴스 모두 참조 횟수가 1인 상태에서 room이 참조하는 Room 클래스 인스턴스의 저장 프로퍼티인 host 프로퍼티에 변수 minseok이 참조하는 Person 클래스 인스턴스를 할당한다. 이때 host 프로퍼티는 Room 클래스에 정의된 대로 강한참조를 하므로 변수 minseok이 참조하는 Person 클래스 인스턴스는 참조 횟수가 1 증가하여 2가 된다. 마찬가지로 minseok이 참조하는 Person 클래스 인스턴스의 저장 프로퍼티인 room 프로퍼티에 변수 room이 참조하는 Room 클래스 인스턴스를 할당하면 room 프로퍼티는 강한참조를 하므로 변수 room이 참조하는 Room 클래서 인스턴스는 참조 횟수가 1 증가하여 2가 된다.
+
+서로 강한참조를 하는 상태에서 minseok 변수에 nil을 할당하면 minseok이 참조하는 인스턴스의 참조 횟수는 1 감소하여 참조 횟수가 1이 된다. 그렇지만 이제 minseok이 참조하던 인스턴스를 참조할 방법은 변수 room이 참조하는 인스턴스의 host 프로퍼티로 접근하는 방법밖에 남아 있지 않다. 다행이도 room 변수가 아직 그 인스턴스를 강한참조로 붙들고 있기 때문에 인스턴스는 메모리에서 해제되지 않은 상황이다.
+
+그렇지만 불행은 변수 room에 nil을 할당해주었을 때 일어난다. room 변수가 참조하던 인스턴스는 참조 횟수가 1 감소하고 최종적으로 참조 횟수가 1이 된다. 그렇지만 이제 minseok 변수가 참조하던 Person 클래스의 인스턴스에 접근할 방법도, room 변수가 참조하던 Room 클래스의 인스턴스에 접근할 방법도 사라졌다. 참조 횟수가 0이 되지 않는 한, ARC의 규칙대로라면 인스턴스를 메모리에서 해제시키지 않기 때문에 이렇게 두 인스턴스 모두 참조 횟수 1을 남겨둔 채, 메모리에 좀비처럼 남아 있게 된다. 메모리 누수가 발생하는 거다. 디 이니셜라이저가 호출되지 않은 것을 보면 메모리에서 해제되지 않고 계속 남아있다는 것을 알 수 있다.
+
+이렇게 두 인스턴스가 서로를 참조하는 상황에서 강한참조 순환 문제가 발생할 수 있다.
+
+```swift
+var minseok: Person? = Person(name: "minseok")  // Person 인스턴스의 참조 횟수 : 1
+var room: Room? = Room(number: "505")           // Room 인스턴스의 참조 횟수 : 1
+
+room?.host = minseok                            // Person 인스턴스의 참조 횟수 : 2
+minseok?.room = room                            // Room 인스턴스의 참조 횟수 : 2
+
+minseok?.room = nil                             // Room 인스턴스의 참조 횟수 : 1
+minseok = nil                                   // Person 인스턴스의 참조 횟수 : 1
+
+room?.host = nil                                // Person 인스턴스의 참조 횟수 : 0
+// minseok is being deinitialzed
+
+room = nil                                      // Room 인스턴스의 참조 횟수 : 0
+// Room 505 is being deinitalized
+```
+
+변수 또는 프로퍼니에 nil을 할당하면 참조 횟수가 감소한다는 규칙을 생학해보면 위 코드와 같은 방법으로 인스턴스를 메모리에서 해제시킬 수 있을지도 모른다. 그렇지만 만약 실수로, 아니면 깜빡하고 코드를 빼먹는다면? 아니면 해제해야 할 프로퍼티가 너무 많거나 귀찮다면? 좀 더 깔끔하고 멋진 해결책은 없을까?
+
+다음에 소개할 약한참조와 미소유참조를 통해 조금 더 명확한 해결책을 찾아보자.
