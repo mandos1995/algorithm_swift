@@ -231,3 +231,64 @@ room = nil // Room 인스턴스의 참조횟수 : 0
 그리고 마지막으로 room 변수가 참조하던 인스턴스는 room = nil 이라는 코드를 통해 더 이상 자신을 참조하는 곳이 없는 상태이다. 즉, 참조 횟수가 0이 되고 메모리에서 해제되는 것을 확인할 수 있다.
 
 약한참조를 통해 보다 강한참조 순환 문제를 훨씬 멋지고 명확하게 해결할 수 있다.
+
+## 27.4 미소유참조
+
+참조 횟수를 증가시키지 않고 참조할 수 있는 방법은 약한참조만 있는 것은 아니다. 약한참조와 마찬가지로 **미소유참조** 는 인스턴스의 참조 횟수를 증가시키지 않는다. 미소유참조는 약한참조와 다르게 자신이 참조하는 인스턴스가 항상 메모리에 존재할 것이라는 전제를 기반으로 동작한다. 즉, 자신이 참조하는 인스턴스가 메모리에서 해제되더라도 스스로 nil을 할당해주지 않는다는 뜻이다. 그렇기 때문에 미소유참조를 하는 변수나 프로퍼팅는 옵셔널이나 변수가 아니어도 된다.
+
+그렇지만 미소유참조를 하면서 메모리에서 해제된 인스턴스에 접근하려 한다면 잘못된 메모리 접근으로 런타임 오류가 발생해 프로세스가 강제 종료됩니다. 따라서 미소유참조는 참조하는 동안 해당 인스턴스가 메모리에서 해제되지 않으리라는 확신이 있을 때만 사용해야 한다.
+
+참조 타입의 변수나 프로퍼티의 정의 앞에 unowned 키워드를 써주면 그 변수(상수)나 프로퍼티는 자신이 참조하는 인스턴스를 미소유참조하게 된다.
+
+우리는 약한참조 파트에서 방과 사람의 관계에 약한참조를 적용하여 강한참조 순환 문제를 해결할 수 있었다. 미소유참조는 어떤 관계에서 사용할 수 있을까? 사람과 신용카드의 관계를 예로 들어 생각해볼 수 있다. 사람이 신용카드를 소지하지 않을 수는 있지만, 신용카드는 명의자가 꼭 있어야 한다. 명의자와 신용카드는 서로를 참조해야 하는 상황이고 신용카드는 명의자가 꼭 존재한다는 확신이 있을 때, 이 관계를 클래스로 표현해보자면 다음 코드처럼 표현해볼 수 있다.
+
+```swift
+class Person {
+    let name: String
+
+    // 카드를 소지할 수도, 소지하지 않을 수도 있기 때문에 옵셔널로 정의
+    // 또, 카드를 한 번 가진 후 잃어버리면 안 되기 때문에 강한참조를 해야한다.
+
+    var card: CreditCard?
+
+    init(name: String) {
+        self.name = name
+    }
+
+    deinit { print("\(name) is being deinitialized") }
+
+}
+
+class CreditCard {
+    let number: UInt
+    unowned let owner: Person // 카드는 소유자가 분명히 존재해야 한다.
+
+    init(number: UInt, owner: Person) {
+        self.number = number
+        self.owner = owner
+    }
+
+    deinit {
+        print("Card #\(number) is being deinitialized")
+    }
+}
+
+var jisoo: Person? = Person(name: "jisoo")      // Person 인스턴스의 참조 횟수 : 1
+
+if let person: Person = jisoo {
+    // CreditCard 인스턴스의 참조 횟수 : 1
+    person.card = CreditCard(number: 1004, owner: person)
+    // Person 인스턴스의 참조 횟수 1
+}
+
+jisoo = nil     // Person 인스턴스의 참조 횟수 0
+// CreditCard 인스턴스의 참조 횟수 : 0
+// jisoo is being deinitialized
+// Card #1004 is being deinitialized
+```
+
+위 코드의 Person 클래스는 CreditCard? 타입의 인스턴스를 강한참조하는 card 프로퍼티가 있고, CreditCard 클래스는 Person 타입의 인스턴스를 미소유참조하는 owner 프로퍼티가 있다. jisoo 변수에 새로운 Person 클래스의 인스턴스를 할당하면 참조 횟수는 1이 된다. 또한 jisoo 변수가 참조하는 인스턴스의 card 프로퍼티에 새로운 CreditCard 인스턴스를 할당하면 그 인스턴스의 참조 횟수는 1이 된다.
+
+그러나 CreditCard의 이니셜라이저에서 owner 프로퍼티에 미소유참조되는 Person 인스턴스는 참조 횟수가 증가하지 않는다. 그래서 서로 참조를 하지만 참조 횟수는 모두 1인 상태가 된다. jisoo 변수에 nil을 할당하면 jisoo 변수가 강한참조하던 인스턴스가 메모리에서 해제되므로 그 인스턴스의 card 프로퍼티가 강한참조하던 CreditCard 클래스의 인스턴스도 참조 횟수가 1 감소되어 메모리에서 해제된다.
+
+이렇듯 사람이 신용카드를 소지하고 있다가 사람이 죽으면 신용카드도 없애야 하는 상황을 unowned 키워드 하나로 표현할 수 있으며 더불어 강한참조 순환 문제도 피해갈 수 있다.
