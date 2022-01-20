@@ -348,3 +348,222 @@ Company의 ceo 프로퍼티에 암시적 추출 옵셔널을 사용한 이뉴는
 그래서 모든 조건을 충족하려면 Company의 ceo 프로퍼티는 암시적 추출 옵셔널로, CEO의 company 프로퍼티는 미소유참조 상수를 사용하면 된다.
 
 정리해보자면 암시적 추출 옵셔널 프로퍼티는 이니셜라이저의 2단계 초기화 조건을 충족시키기 위해 사용했으며 미소유참조 프로퍼티는 약한참조를 사용할 수 없는 경우(옵셔널이 아니어야 하거나 상수로 지정해야 하는 경우)에 강한참조를 피하기 위하여 사용할 수 있다.
+
+## 27.6 클로저의 강한참조 순환
+
+강한참조에서 인스턴스끼리의 강한참조 때문에 발생하는 강한참조 순환 문제를 살펴본 바있다. 그런데 강한참조 순환 문제는 두 인스턴스끼리의 참조일 때만 발생하는 것 외에 클로저가 인스턴스의 프로퍼티일 때나, 클로저의 값 획득 특성 때문에 발생한다. 예를 들어 클로저 내부에서 self.someProperty처럼 인스턴스의 프로퍼티에 접근할 때나 클로저 내부에서 self.someMethod()처럼 인스턴스의 메서드를 호출할 때 값 획득이 발생할 수 있는데, 두 경우 모두 클로저가 self를 획득하므로 강한참조 순환이 발생한다.
+
+강한참조 순환이 발생하는 이유는 클로저가 클래스와 같은 참조 타입이기 때문이다. 클로저를 클래스 인스턴스의 프로퍼티로 할당하면 클로저의 참조가 할당된다. 이때 참조 타입과 참조 타입이 서로 강한참조를 하기 때문에 강한참조 순환 문제가 발생한다.
+
+이러한 클로저의 강한참조 순환 문제는 클로저의 획득 목록을 통해 해결할 수 있다. 그런데 클로저의 획득 목록을 통해 강한참조 순환 문제를 해결하는 방법을 알아보기 전에 강한참조 순환이 어떻게 일어나게 되는지 알아보는 것도 중요하다. 간단한 예제를 통해 이러한 문제 발생 가능성을 확인해보겠다.
+
+```swift
+class Person {
+    let name: String
+    let hobby: String?
+
+    lazy var introduce: () -> String = {
+        var introduction: String = "My name is \(self.name)"
+
+        guard let hobby = self.hobby else {
+            return introduction
+        }
+
+        introduction += " "
+        introduction += "My hobby is \(hobby)"
+
+        return introduction
+    }
+
+    init(name: String, hobby: String? = nil) {
+        self.name = name
+        self.hobby = hobby
+    }
+
+    deinit {
+        print("\(name) is being deinitialized")
+    }
+}
+
+var mandos: Person? = Person(name: "mandos", hobby: "eating")
+print(mandos?.introduce())      // Optional("My name is mandos My hobby is eating")
+mandos = nil
+```
+
+위 코드에서 minseok 변수는 마지막에 nil을 할당했지만 deinit이 호출되지 않은 것을 보면 메모리에서 해제되지 않은 채 누수를 일으키는 것으로 보인다. Person 클래스의 introduce 프로퍼티에 클로저를 할당한 후 클로저 내부에서 self 프로퍼티를 사용할 수 있었던 이유는 introduce가 지연 저장 프로퍼티이기 때문이다. 만약 지연 저장 프로퍼티가 아니라면 이렇게 self를 사용하여 접근할 수 없었을 것이다. lazy 프로퍼티로 할당한 클로저 내부에서 Person 클래스 인스턴스의 다른 인스턴스 프로퍼티에 접근하려면 Person 클래스의 인스턴스가 모두 초기화되어 사용이 가능한 상태에서만 클로저에 접근할 수 있다. 따라서 클로저 내부에서는 self 프로퍼티를 통해서만 다른 프로퍼티에 접근할 수 있다.
+
+자기소개를 하려고 introduce 프로퍼티를 통해 클로저를 호출하면 그 때 클로저는 자신의 내부에 있는 참조 타입 변수 등을 획득한다. 문제는 여기서 시작된다. 클로저는 자신이 호출되면 언제든지 자신 내부의 참조들을 사용할 수 있도록 참조 횟수를 증가시켜 메모리에서 해제되는 것을 방지하는데, 이때 자신을 프로퍼티로 갖는 인스턴스의 참조 횟수도 증가시킨다.
+
+이렇게 강한참조 순환이 발생하면 자신을 강한참조 프로퍼티로 갖는 인스턴스가 메모리에서 헤제될 수 없다. 즉 mandos 변수에 nil을 할당해도 deinit가 호출되지 않는 것으로 보아 인스턴스가 메모리에서 해제되지 않는 것을 확인할 수 있다.
+
+**NOTE_ self 프로퍼티와 참조 횟수**
+
+클로저 내부에서 self 프로퍼티를 여러 번 호출하여 접근한다고 해도 참조 횟수는 한 번만 증가한다.
+
+### 27.6.1 획득목록
+우리는 앞의 문제를 **획득목록**을 통해 해결할 수 있다. 획득목록은 클로저 내부에서 참조 타입을 획득하는 규칙을 제시해줄 수 있는 기능이다. 예를 들어 위 코드의 상황에서 클로저 내부의 self 참조를 약한참조로 지정할 수도, 강한참조로 지정할 수도 있다는 뜻이다. self를 약한참조하도록 바꾸면 문제를 해결할 수 있다. 획득목록을 사용하면 때에 따라서, 혹은 각 관게에 따라서 참조 방식을 클로저에 제안할 수 있다.
+
+획득목록은 클로저 내부의 매개변수 목록 이전 위치에 작성해준다. 획득목록은 참조 방식과 참조할 대상을 대괄호 ([])로 둘러싼 목록 형식으로 작성하며 획득목록 뒤에는 in 키워드를 써준다. 획득목록에 명시한 요소가 참조 타입이 아니라면 해당 요소들을 클로저가 생성될 때 초기화된다.
+
+```swift
+var a = 0
+var b = 0
+let closure = { [a] in
+    print(a, b)
+    b = 20
+}
+
+a = 10
+b = 10
+closure()   // 0 10
+print(b)    // 20
+```
+위 코드를 보면 변수 a는 클로저의 획득목록을 통해 클로저가 생성될 때 값 0을 획득했지만 b는 따로 값을 획득하지 않았다. 차후에 a와 b의 값을 변경한 후 클로저를 실행하면 a는 클로저가 생성되었을 때 획득한 값을 갖지만, b는 변경된 값을 사용하는 것을 확인할 수 있다.
+
+a 변수는 클로저가 생성됨과 동시에 획득목록 내에서 다시 a라는 이름의 상수로 초기화된 것이다. 그렇기 때문에 외부에서 a의 값을 변경하더라도 클로저의 획득목록을 통한 a와는 별개가 되는 것이다. 그러나 b의 경우네는 클로저의 내부와 외부 상관없이 값이 변하는대로 모두 반영됨을 확인할 수 있다.
+
+그러나 만약 획득목록에 해당하는 요소가 참조 타입이라면 조금 다른 결과를 볼 수 있다.
+
+다음 코드를 통해 확인해보자.
+
+```swift
+class SimpleClass {
+    var value: Int = 0
+}
+
+var x = SimpleClass()
+var y = SimpleClass()
+
+let closure = { [x] in
+    print(x.value, y.value)
+}
+
+x.value = 10
+y.value = 10
+
+closure()       // 10 10
+```
+
+위 코드의 결과는 조금 다른 것을 알 수 있다. 변수 x는 획득목록을 통해 값을 획득했지만 y는 획득목록에 별도로 명시되지 않았다. 그렇지만 서로 동작은 같다. 두 변수 모두 참조 타입의 인스턴스가 있기 때문이다. 그렇지만 참조 타입은 획득목록에서 어떤 방식으로 참조할 것인지, 즉 **강한획득** 을 할 것인지, **약한획득** 을 할 것인지, **미소유획득** 을 할 것인지를 정해줄 수 있다. 똑 획득의 종류에 따라 참조 횟수를 증가시킬지 결정할 수 있다. 다만 명심할 것은 약한획득을 하게 되면 획득목록에서 획득하는 상수가 옵셔널 상수로 지정된다는 것이다. 그 이유는 차후에 클로저 내부에서 약한획득한 상수를 사용하려고 할 때 이미 메모리에서 해제된 상태일 수 있기 때문이다. 해제된 후에 접근하려 하면 잘못된 접근으로 오류가 발생하므로 안전을 위해 약한획득은 기본적으로 타입을 옵셔널로 사용하는 것이다.
+
+```swift
+class SimpleClass {
+    var value: Int = 0
+}
+
+var x: SimpleClass? = SimpleClass()
+var y = SimpleClass()
+
+let closure = { [weak x, unowned y] in
+    print(x?.value, y.value)
+}
+
+x = nil
+y.value = 10
+
+closure()       // nil 10
+```
+
+위 코드의 획득목록에서 x를 약한참조로, y를 미소유참조하도록 지정했다. x가 약한참조를 하게 되므로 클로저 내부에서 사용하더라도 클로저는 x가 참조하는 인스턴스의 참조횟수를 증가시키지 않습니다. 그렇게 되면 변수 x가 참조하는 인스턴스가 메모리에서 해제되어 클로저 내부에서도 더 이상 참조가 불가능한 것을 볼 수 있습니다. y는 미소유참조를 했기 때문에 클로저가 참조 횟수를 증가시키지 않지만, 만약 메모리에서 해제된 상태에서 사용하려 한다면 실행 중에 오류로 애플리케이션이 강제로 종료될 가능성이 있다.
+
+클로저의 획득목록을 알아보았으니 우리가 만들었던 클로저의 강한참조 순환 문제를 해결해보도록 하겠다.
+
+```swift
+class Person {
+    let name: String
+    let hobby: String?
+
+    lazy var introduce: () -> String = { [unowned self] in
+        var introduction: String = "My name is \(self.name)"
+
+        guard let hobby = self.hobby else {
+            return introduction
+        }
+
+        introduction += " "
+        introduction += "My hobby is \(hobby)."
+        return introduction
+    }
+
+    init(name: String, hobby: String? = nil) {
+        self.name = name
+        self.hobby = hobby
+    }
+    deinit {
+        print("\(name) is being deinitialized")
+    }
+}
+
+var minseok: Person? = Person(name: "minseok", hobby: "eating")
+print(minseok?.introduce()) // Optional("My name is minseok My hobby is eating.")
+minseok = nil // minseok is being deinitialized
+```
+
+위 코드를 보면 minseok이 참조하는 인스턴스가 의도한 대로 메모리에서 해제되는 것을 확인할 수 있다. introduce 프로퍼티의 클로저가 self를 미소유참조하도록 획득목록에 명시했기 때문이다. self 프로퍼티를 미소유참조하도록 한 것은, 해당 인스턴스가 존재하지 않는다면 프로퍼티도 호출할 수 없으므로 self는 미소유참조를 하더라도 실행 중에 오류를 발생시킬 가능성이 거의 없다고 볼 수 있기 때문이다.
+
+self를 미소유참조로 지정해주었을 때 문제가 발생할 수 있다. 프로퍼티로 사용하던 클로저를 다른 곳에서 참조하게 된 후 인스턴스가 메모리에서 해제되었을 때이다. 그런 상황에 클로저가 실행되면 잘못된 메모리 접근을 야기한다. 그러므로 미소유참조는 신중히 사용해야 하며, 문제가 될 소지가 있다면 약한참조를 사용하면 된다.
+
+```swift
+var minseok: Person? = Person(name: "minseok", hobby: "eating")
+var hana: Person? = Person(name: "hana", hobby: "playing guitar")
+
+// hana의 introduce 프로퍼티에 minseok의 introduce 프로퍼티 클로저의 참조 할당
+hana?.introduce = minseok?.introduce ?? {" "}
+
+// 아직 minseok이 참조하는 인스턴스가 해제되지 않았기 때문에
+// 클로저 내부에서 self(minseok 변수가 참조하는 인스턴스) 참조 가능
+print(minseok?.introduce()) // Optional("My name is minseok My hobby is eating.")
+
+minseok = nil   // minseok is being deinitialized
+
+print(hana?.introduce())    // 오류 발생! 이미 메모리에서 해제된 인스턴스(minseok) 참조 시도
+```
+
+위 코드처럼 미소유참조로 인한 문제상황이 발생할 수 있다면 약한참조로 변경하여 옵셔널로 사용해도 무방하다.
+
+```swift
+class Person {
+    let name: String
+    let hobby: String?
+
+    lazy var introduce: () -> String = { [weak self] in
+        guard let `self` = self else {
+            return "원래의 참조 인스턴스가 없어졌습니다."
+        }
+        var introduction: String = "My name is \(self.name)"
+
+        guard let hobby = self.hobby else {
+            return introduction
+        }
+
+        introduction += " "
+        introduction += "My hobby is \(hobby)."
+
+        return introduction
+    }
+
+    init(name: String, hobby: String? = nil) {
+        self.name = name
+        self.hobby = hobby
+    }
+    deinit {
+        print("\(name) is being deinitialized")
+    }
+}
+
+var minseok: Person? = Person(name: "minseok", hobby: "eating")
+var hana: Person? = Person(name: "hana", hobby: "playing guitar")
+
+// hana의 introduce 프로퍼티에 minseok의 introduce 프로퍼티 클로저의 참조 할당
+hana?.introduce = minseok?.introduce ?? {" "}
+
+// 아직 minseok이 참조하는 인스턴스가 해제되지 않았기 때문에
+// 클로저 내부에서 self(minseok 변수가 참조하는 인스턴스) 참조 가능
+print(minseok?.introduce()) // Optional("My name is minseok My hobby is eating.")
+
+minseok = nil   // minseok is being deinitialized
+
+print(hana?.introduce())    // Optional("원래의 참조 인스턴스가 없어졌습니다.")
+```
+
+이처럼 클로저의 획득 특성 때문에 클로저가 프로퍼티로 사용될 경우 발생할 수 있는 강한참조 순환 문제는 클로저의 획득목록을 통해 해결할 수 있는 것을 알 수 있다.
