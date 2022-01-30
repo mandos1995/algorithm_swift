@@ -9,10 +9,10 @@ let dx = [0, 0, -1, 1]
 let dy = [-1, 1, 0, 0]
 let moveTypes = ["L", "R", "U", "D"]
 
-var nx = 0
-var ny = 0
 // 이동 계확을 하나씩 확인
-for plan in plans {ç
+for plan in plans {
+    var nx = -1
+    var ny = -1
     // 이동 후 좌표 구하기
     for i in 0..<moveTypes.count {
         if plan == moveTypes[i] {
