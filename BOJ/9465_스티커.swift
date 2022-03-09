@@ -20,6 +20,7 @@ func solution() {
     print(max(cache[1][n - 1], cache[0][n - 1]))
 }
 
+
 for _ in 0..<Int(readLine()!)! {
     solution()
 }
