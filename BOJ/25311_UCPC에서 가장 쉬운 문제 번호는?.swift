@@ -1,0 +1,2 @@
+_ = readLine()
+print("A")
