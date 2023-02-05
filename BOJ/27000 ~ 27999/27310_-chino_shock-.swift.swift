@@ -1,8 +1,15 @@
-//
-//  27310_-chino_shock-.swift.swift
-//  algorithm_swift
-//
-//  Created by 김민석 on 2023/02/05.
-//
+let emoji = readLine()!
+var answer = emoji.count
 
-import Foundation
+for e in emoji {
+    if e == "_" {
+        answer += 5
+        continue
+    }
+    
+    if e == ":" {
+        answer += 1
+    }
+}
+
+print(answer)
