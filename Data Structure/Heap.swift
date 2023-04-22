@@ -2,6 +2,14 @@ struct Heap<T: Comparable> {
     private var elements: [T] = []
     private let comparer: (T, T) -> Bool
     
+    var isEmpty: Bool {
+        return elements.count <= 1
+    }
+    
+    var top: T? {
+        return isEmpty ? nil : elements[1]
+    }
+    
     init(comparer: @escaping (T,T) -> Bool) {
         self.comparer = comparer
     }
@@ -23,8 +31,6 @@ struct Heap<T: Comparable> {
             index /= 2
         }
     }
-    
-    
     
     mutating func pop() -> T? {
         if elements.count < 2 { return nil }
