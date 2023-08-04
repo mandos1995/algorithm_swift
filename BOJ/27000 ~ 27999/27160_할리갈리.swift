@@ -6,4 +6,3 @@ for _ in 0..<n {
 }
 
 print(dict.values.filter { $0 == 5 }.isEmpty ? "NO": "YES")
-
