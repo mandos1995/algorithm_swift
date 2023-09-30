@@ -1,8 +1,14 @@
-//
-//  2435_기상청 인턴 신현수.swift
-//  algorithm_swift
-//
-//  Created by 김민석 on 2023/09/30.
-//
+let input = readLine()!.split(separator: " ").map { Int($0)! }
+let n = input[0], k = input[1]
+let array = readLine()!.split(separator: " ").map { Int($0)! }
+var prefixSum = [0] + array
+var answer = Int.min
+for i in 1...n {
+    prefixSum[i] += prefixSum[i - 1]
+}
 
-import Foundation
+for i in 0...n - k {
+    answer = max((prefixSum[i + k] - prefixSum[i]), answer)
+}
+
+print(answer)
