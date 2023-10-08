@@ -1,8 +1,8 @@
-//
-//  29766_DKSH 찾기.swift
-//  algorithm_swift
-//
-//  Created by 김민석 on 2023/10/08.
-//
-
-import Foundation
+let s = readLine()!.map { $0 }
+var count = 0
+for i in 0..<s.count - 3 {
+    if String(s[i...i + 3]) == "DKSH" {
+        count += 1
+    }
+}
+print(count)
